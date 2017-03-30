@@ -1,0 +1,8 @@
+﻿<AML>
+ <Item type="EMail Message" id="1D25F743879441D3A4B4AF7AC0FB50E4" action="add">
+  <body_html>You have been asked to help on a Workflow Activity.  Please logon to Innovator and check your in-basket.</body_html>
+  <from_user keyed_name="Innovator Admin" type="User">30B991F927274FA3829655F50C99472E</from_user>
+  <name>HelpRequest</name>
+  <subject>Help Request</subject>
+ </Item>
+</AML>

@@ -1,0 +1,3 @@
+<imports>
+  <package name="workflowAdHoc" path="workflowAdHoc\Import" />
+</imports>

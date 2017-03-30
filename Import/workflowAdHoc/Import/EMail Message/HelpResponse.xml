@@ -1,0 +1,8 @@
+﻿<AML>
+ <Item type="EMail Message" id="867A4FA930EF423096A9767E67994430" action="add">
+  <body_html>The Workflow Help that you requested has been completed.  Please logon to Innovator and check your workflow in-basket for more details.</body_html>
+  <from_user keyed_name="Innovator Admin" type="User">30B991F927274FA3829655F50C99472E</from_user>
+  <name>HelpResponse</name>
+  <subject>Help Response</subject>
+ </Item>
+</AML>

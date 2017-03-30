@@ -1,0 +1,1093 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+
+<!-- (c) Copyright by Aras Corporation, 2004 - Company Confidential. -->
+<!--  includes modifications  01.17.2008 peter,  for adhoc assigment creation   -->
+
+<html>
+<head>
+  <script type="text/javascript" src="../../javascript/AddConfigurationLink.js">TreeTable</script>
+  <!-- CC -->
+<script>
+	var aras = dialogArguments.aras;
+	var MyActivity = dialogArguments.activity;
+	var workflowName = dialogArguments.wflName;
+	var workflowId = dialogArguments.wflId;
+	var itemId = dialogArguments.itemId;
+	document.writeln('<base HREF="'+top.aras.getScriptsURL()+'" />');
+</script>
+
+<title>Innovator Workflow Voting Dialog</title>
+
+<link rel="stylesheet" type="text/css" href="../styles/default.css">
+<style type="text/css">
+  body {
+    background-image:url(../images/Backgrounds/wvleft.gif);
+    background-repeat:no-repeat;
+    padding-bottom:5px;
+  }
+
+  fieldset {
+    border-width:2px;
+    width:90%;
+    padding-bottom:5px;
+  }
+	legend {
+    font-weight:bold;
+  }
+
+  .logicalSection {
+    padding-top:20px;
+  }
+  .logicalSubSection {
+    padding-top:15px;
+  }
+  .logicalSubSection2 {
+    padding-top:5px;
+  }
+
+	.dynamicBkColor {
+		background-color:expression(this.readOnly ? 'lightgrey' : 'white');
+	}
+
+</style>
+</head>
+
+<script src="../javascript/md5.js"></script>
+
+<script>
+
+//prompt('xml', MyActivity.xml);
+var	MyActId     = aras.getItemProperty(MyActivity, 'id');
+var	MyActName   = aras.getItemProperty(MyActivity, 'name');
+var	CanDelegate = aras.getItemProperty(MyActivity, 'can_delegate');
+var	CanRefuse   = aras.getItemProperty(MyActivity, 'can_refuse');
+
+/*
+var	MyWflItem   = MyActivity.selectSingleNode('WorkflowProcess/Item');
+var	MyWflName   = MyActivity.selectSingleNode('WorkflowProcess/Item/name').text;
+var	MyWflId     = aras.getItemProperty(MyWflItem, 'id');
+*/
+
+var	MyWflName   = workflowName; //Workflow Process name
+var MyWflId     = workflowId;
+
+var	MyAssID     = dialogArguments.assignmentId;
+var	MyAssItem   = top.aras.getItemById("Activity Assignment", MyAssID, 1);
+var delegateID = 0;
+
+function esc(str)
+{
+   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function initUI() {
+	setTimeout("getAllowedVotes()", 10);
+	setTimeout("populateTasksList()", 20);
+}
+
+function onGridEditCell(type, rowID, col) {
+	if (col == 1) {
+		var cell = this.taskgrid.cells(rowID, col);
+  	cell.setChecked(cell.isChecked() ? 0 : 1);
+    if (type == 2) return true; //return true if edit successful
+    else return false;
+	}
+	else if (col == 3) return true;
+  if (type == 2) return true; //return true if edit successful
+	else return false;
+}
+
+function getSequenceOrderArray(nodes) {
+	var arr = new Array(nodes.length);
+	var i, j;
+	var obj, text_val, tmp;
+
+	for (i = 0; i < nodes.length; i++) {
+		text_val = aras.getItemProperty(nodes.item(i), 'sequence');
+
+		obj = new Object();
+		obj.seq = parseInt(text_val, 10);
+		obj.ind = i;
+		arr[i] = obj;
+	}
+
+	for (i = 0; i < nodes.length; i++)
+		for (j = i+1; j < nodes.length; j++)
+			if (arr[i].seq > arr[j].seq) {
+			 tmp = arr[i];
+			 arr[i] = arr[j];
+			 arr[j] = tmp;
+			}
+
+	return arr;
+}
+
+function populateTasksList() {
+	var taskList, task, taskValItem, taskID;
+	var row_id, cell;
+	var sequence, is_required, descr, completed_on;
+
+	if (!(MyActivity)) return;
+	taskList = MyActivity.selectNodes('Relationships/Item[@type="Activity Task"]');
+	var arr = getSequenceOrderArray(taskList);
+	for (var i = 0; i < taskList.length; i++) {
+		task = taskList.item(arr[i].ind);
+		taskID = aras.getItemProperty(task, 'id');
+		row_id = taskID;
+		this.taskgrid.addRow(row_id, '', '"' + row_id + '"');
+
+		sequence = aras.getItemProperty(task, 'sequence');
+		cell = this.taskgrid.cells(row_id, 0);
+		cell.setValue(sequence);
+
+		is_required = aras.getItemProperty(task, 'is_required');
+		cell = this.taskgrid.cells(row_id, 1);
+		cell.setValue('<checkbox state=' + is_required + ' />');
+
+		descr = aras.getItemProperty(task, 'description');
+		cell = this.taskgrid.cells(row_id, 2);
+		cell.setValue(descr);
+
+		taskValItem = MyAssItem.selectSingleNode("Relationships/Item[@type='Activity Task Value' and task='" + taskID + "']");
+		if(!taskValItem)
+		{
+			var tempItemNode=MyAssItem.ownerDocument.createElement("Item");
+			tempItemNode.setAttribute("type","Activity Task Value");
+			tempItemNode.setAttribute("action","add");
+
+			var tempNode=tempItemNode.ownerDocument.createElement("task");
+			tempNode.text = taskID;
+			tempItemNode.appendChild(tempNode);
+
+			tempNode=tempItemNode.ownerDocument.createElement("source_id");
+			tempNode.setAttribute("type","Activity Assignment");
+			tempNode.text = MyAssID;
+			tempItemNode.appendChild(tempNode);
+			MyAssItem.selectSingleNode("Relationships").appendChild(tempItemNode);
+      	}
+
+		if(taskValItem)	completed_on = aras.getItemProperty(taskValItem, "completed_on");
+		else completed_on="";
+
+		cell = this.taskgrid.cells(row_id, 3);
+		cell.setValue('<checkbox state=' + (completed_on == "" ? 0 : 1) + ' />');
+	}
+
+	//this.taskgrid.setPaintEnabled(true);
+}
+
+function populateVariables() {
+	var varList, variable;
+
+    if (MyActivity) {
+	  varList = MyActivity.selectNodes('Relationships/Item[@type="Activity Variable" and (not(is_hidden) or is_hidden="0")]');
+	  if (varList.length == 0) {
+        VariablesSection.style.display = 'none';
+		return;
+	  }
+	}
+
+    if (!(varList)) return;
+
+	var varValItem, varName, varID, varType, varValue;
+	var checked, srcListID, listVals;
+
+	var arr = getSequenceOrderArray(varList);
+	for (var i = 0; i < varList.length; i++) {
+		actVar = varList.item(arr[i].ind);
+		varName = aras.getItemProperty(actVar, 'name');
+		varType = aras.getItemProperty(actVar, 'datatype');
+
+		varID = aras.getItemProperty(actVar, 'id');
+		varValItem = MyAssItem.selectSingleNode("Relationships/Item[@type='Activity Variable Value' and variable='" + varID + "']");
+		if (!varValItem) {
+			top.aras.AlertError('The "Activity Variable Value" item was not found for varID ' + varID);
+			return;
+		}
+
+		varValue = aras.getItemProperty(varValItem, "value");
+		this.vars.document.write("<TR><TD><B>" +varName+ ":</B></TD>");
+
+		if (varType == "String" || varType == "Integer" || varType == "Float") {
+			this.vars.document.write("<TD><INPUT type='text' name='" +varName+ "' value='" +varValue+ "' style='width:200px;'></TD></TR>");
+		}
+
+		else if (varType == "Boolean") {
+			checked = (varValue == "0" ? "" : "checked");
+			this.vars.document.write("<TD><INPUT type='checkbox' name='" +varName+ "' " +checked+ "></TD></TR>");
+		}
+
+		else if (varType == "List") {
+			this.vars.document.write("<TD><SELECT name='" +varName+ "' style='width:200px;'>");
+
+			srcListID = aras.getItemProperty(actVar, 'source');
+			listVals = aras.getListValuesEx(srcListID);
+
+			for (var j = 0; j < listVals.length; j++) {
+				if (varValue == listVals.item(j).getAttribute('value'))
+					this.vars.document.write("<Option value=\""+listVals.item(j).getAttribute('value')+"\" Selected>" + listVals.item(j).getAttribute('label'));
+				else
+					this.vars.document.write("<Option value=\""+listVals.item(j).getAttribute('value')+"\">" + listVals.item(j).getAttribute('label'));
+			}
+
+			this.vars.document.write("</TD></TR>");
+		}
+	}
+}
+
+function getAllowedVotes() {
+	//file.WriteLine('getAllowedVotes');
+	// fetch the path and auth properties from the Activities structure and the Tasks
+	if (!(MyActivity)) return;
+	var paths = MyActivity.selectNodes('Relationships/Item[@type="Workflow Process Path"]');
+	if (paths == null) {
+		top.aras.AlertError('Error: This Activity has no allowed Votes.');
+		return;
+	}
+
+	var voteIndex = 0;
+	var pathAlready = new Object();
+
+	var pathItem, path_name, path_id;
+	for (var i = 0; i < paths.length; i++)
+	{
+		pathItem = paths[i];
+		path_name = aras.getItemProperty(pathItem, 'name');
+		path_id = aras.getItemProperty(pathItem, 'id');
+
+		if (!pathAlready[path_name])
+		{
+			pathAlready[path_name] = 1;
+			var newOption = new Option();
+		  newOption.text = path_name;
+		  newOption.value = path_id;
+			VoteList.options[voteIndex++] = newOption;
+		}
+	}
+
+	// check if the Refuse and/or Delegate should be added
+	if (CanDelegate == "1")
+	{
+		var newOption = new Option();
+		newOption.text = "Delegate";
+		newOption.value = path_id;
+		VoteList.options[voteIndex++] = newOption;
+	}
+
+	if (CanRefuse == "1")
+	{
+		var newOption = new Option();
+		newOption.text = "Refuse";
+		newOption.value = path_id;
+		VoteList.options[voteIndex++] = newOption;
+	}
+
+	this.Comments.value = aras.getItemProperty(MyAssItem, 'comments');
+
+  //onChangeVote();
+  this.VoteList.options.selectedIndex = -1;
+	setTimeout("repositionDlg()", 1);
+}
+
+function onChangeVote() {
+	var selInd = this.VoteList.options.selectedIndex;
+	if (selInd == -1) return;
+
+	var MyPath = this.VoteList.options[selInd].text;
+	if (MyPath == "Delegate") {
+		delegate.readOnly = false;
+		delegate_img.disabled = false;
+	}
+	else {
+		delegate.readOnly = true;
+		delegate_img.disabled = true;
+	}
+
+	var MyAuth = "none";
+	if (MyPath != "Delegate" && MyPath != "Refuse") {
+		var path_id = this.VoteList.options[selInd].value;
+		var pathItem = MyActivity.selectSingleNode('Relationships/Item[@type="Workflow Process Path" and id="' +path_id+ '"]');
+		MyAuth = aras.getItemProperty(pathItem, 'authentication');
+	}
+
+	if (MyAuth == "password")
+			this.password.readOnly = false;
+	else
+			this.password.readOnly = true;
+
+	if (MyAuth == "esignature")
+			this.esignature.readOnly = false;
+	else
+			this.esignature.readOnly = true;
+}
+
+function repositionDlg() {
+	//recalculates actually height of the dialog
+  var cy = parseInt(window.dialogHeight.toString().replace(/[^0-9]/g, '')) - document.body.clientHeight;
+  window.dialogHeight = (document.body.scrollHeight + cy) + 'px';
+
+	//centres the dialog on the screen
+	window.dialogTop = (window.screen.height - (document.body.scrollHeight + cy)) / 2;
+}
+
+var lastDelegateVal = ""
+
+function showSearchDialog(itemTypeName) {
+	var res = showModalDialog('../searchDialog.html', {aras:window.top.aras, itemtypeName:itemTypeName},
+		'dialogHeight: 450px; dialogWidth: 700px; status:0; help:0; resizable:1');
+  if (!res) return;
+
+	delegateID = res.itemID;
+	delegate.value = res.keyed_name;
+	lastDelegateVal = delegate.value;
+}
+
+function doSearchIdentity() {
+ 	if (lastDelegateVal == delegate.value) return;
+
+	var item = aras.uiGetItemByKeyedName("Identity", delegate.value);
+	if (item == null)
+  {
+    if (delegate.value != "")
+      top.aras.AlertError("Wrong value entered for item type 'Identity'");
+		delegate.value = "";
+		lastDelegateVal = "";
+		delegateID = 0;
+		return;
+	}
+  else
+  {
+    delegate.value = item.selectSingleNode('keyed_name').text;
+  }
+
+	delegateID = aras.getItemProperty(item, 'id');
+	lastDelegateVal = delegate.value;
+}
+
+function delegateOnKeydown() {
+	//F2: keyCode = 113
+	if (event.keyCode == 113) {
+		delegate.onfocusout = ""
+		showSearchDialog("Identity");
+		delegate.onfocusout = doSearchIdentity;
+	}
+}
+
+function delegateClick() {
+	showSearchDialog("Identity");
+}
+
+function doComplete() {
+	completeActivity("complete");
+}
+
+function saveChanges() {
+	completeActivity("save");
+}
+
+function cancelVote() {
+	top.window.close();
+}
+
+function completeActivity(mode)  {
+	if (mode != "complete" && mode != "save") return;
+
+	var selInd = this.VoteList.options.selectedIndex;
+	if (selInd == -1) {
+		if (mode == "complete"){
+		top.aras.AlertError('VoteList contains no selected items.');
+		return;
+		} else {
+			selInd = 0;//to allow save
+		}
+	}
+
+	if (this.VoteList.options[selInd] == null)
+	{
+    top.aras.AlertError('VoteList contains no items.');
+		return;
+	}
+
+
+	var MyPath = this.VoteList.options[selInd].text;
+	var pathID = this.VoteList.options[selInd].value;
+	var pathItem = MyActivity.selectSingleNode('Relationships/Item[@type="Workflow Process Path" and id="' +pathID+ '"]');
+
+	var MyAuth = "none";
+	if (MyPath != "Delegate" && MyPath != "Refuse")
+		MyAuth = aras.getItemProperty(pathItem, 'authentication');
+
+	var MD5Auth = "";
+	var AuthMode = "";
+
+	// check for password required at this point
+	if (MyAuth == "password") {
+		if (mode == "complete") {
+			if (this.password.value == "") {
+				top.aras.AlertError("You must enter your Password to complete the Activity.");
+				return;
+			}
+		}
+
+		AuthMode = "password";
+		MD5Auth = calcMD5(this.password.value);
+		if (mode == "complete") {
+			var resultXML = aras.ValidateVote(MD5Auth, "password");
+			if (!resultXML) {
+				top.aras.AlertError("An internal Error has occured.", "ValidateVote: resultXML is empty!", "Client Side Error");
+				return;
+			}
+
+			var result = resultXML.selectSingleNode(top.aras.XPathResult());
+			if (result.text != "pass") {
+				top.aras.AlertError("The password you entered is invalid.");
+				return;
+			}
+		}
+	}
+
+	else if (MyAuth == "esignature") {
+		if (mode == "complete") {
+			if (this.esignature.value == "") {
+				top.aras.AlertError("You must enter your e-Signature to complete the Activity.");
+				return;
+			}
+		}
+
+		AuthMode = "esignature";
+		MD5Auth = calcMD5(this.esignature.value);
+		if (mode == "complete") {
+			var resultXML = aras.ValidateVote(MD5Auth, "esignature");
+			if (!resultXML) {
+				top.aras.AlertError("An internal error has occured.", "ValidateVote: resultXML is empty!", "Client Side Error");
+				return;
+			}
+
+			var result = resultXML.selectSingleNode(top.aras.XPathResult());
+			if (result.text != "pass") {
+				top.aras.AlertError("Te E-Signature you entered is invalid.");
+				return;
+			}
+		}
+	}
+
+	if (MyPath == "Delegate" ) {
+		if (mode == "complete") {
+			if (delegate.value == "") {
+				top.aras.AlertError("You must enter the name of someone to delegate to.");
+				return;
+			}
+		}
+	}
+
+	var body = "";
+	body += '<Item type="'+MyActivity.getAttribute('type')+'" action="EvaluateActivity">';
+	body += '<Activity>' + MyActId + '</Activity>';
+	body += '<ActivityAssignment>' + MyAssID + '</ActivityAssignment>';
+
+	body += '<Paths>';
+	body += "<Path id='" + pathID + "'><![CDATA[" + MyPath + "]]></Path>";
+	body +=  '</Paths>';
+
+	body += '<DelegateTo>' + delegateID + '</DelegateTo>';
+
+	var taskList, task, taskID;
+	var row_id, cell, sequence, is_required, task_complete;
+	var validate;
+	if (mode == "complete" && MyPath != "Delegate" && MyPath != "Refuse")
+		validate = true;
+	else
+		validate = false;
+
+	body += '<Tasks>';
+	taskList = MyActivity.selectNodes('Relationships/Item[@type="Activity Task"]');
+	for (var i = 0; i < taskList.length; i++) {
+		task = taskList.item(i);
+		taskID = aras.getItemProperty(task, 'id');
+		row_id = taskID;
+
+		cell = this.taskgrid.cells(row_id, 0);
+		sequence = cell.getValue();
+		cell = this.taskgrid.cells(row_id, 1);
+		is_required = cell.isChecked();
+		cell = this.taskgrid.cells(row_id, 3);
+		task_complete = cell.isChecked();
+		if (validate) {
+			if (is_required && !task_complete) {
+				top.aras.AlertError('Task ' + sequence + ' is required and must be compeleted.');
+				return;
+			}
+		}
+
+	  body += "<Task id='" + taskID + "' completed='" + (task_complete ? 1 : 0) + "'></Task>";
+	}
+	body += '</Tasks>';
+
+	var varList, actVar, varName, varType, varID, varValItem;
+	var elem, is_required, is_hidden, value;
+
+	body += '<Variables>';
+	varList = MyActivity.selectNodes('Relationships/Item[@type="Activity Variable"]');
+	for (i = 0; i < varList.length; i++) {
+		actVar = varList.item(i);
+		varName = aras.getItemProperty(actVar, 'name');
+		varType = aras.getItemProperty(actVar, 'datatype');
+		varID = aras.getItemProperty(actVar, 'id');
+		is_required = (aras.getItemProperty(actVar, 'is_required') == "1" ? true : false);
+		is_hidden = (aras.getItemProperty(actVar, 'is_hidden') == "1" ? true : false);
+		value = "";
+
+		if (is_hidden) {
+			varValItem = MyAssItem.selectSingleNode("Relationships/Item[@type='Activity Variable Value' and variable='" + varID + "']");
+			if (!varValItem) {
+				top.aras.AlertError('The "Activity Variable Value" item was not found for varID ' + varID);
+				return;
+			}
+
+			value = aras.getItemProperty(varValItem, "value");
+		}
+
+		else {
+			elem = this.vars.all(varName);
+			if (!elem) return;
+
+			if (varType == "String" || varType == "Integer" || varType == "Float") {
+				value = elem.value;
+
+				if (validate) {
+					if (is_required && value == "") {
+						top.aras.AlertError('Variable ' + varName + ' is required, but not filled in.');
+						return;
+					}
+				}
+			}
+
+			else if (varType == "Boolean") {
+				value = elem.checked ? '1' : '0';
+			}
+
+			else if (varType == "List") {
+				if (elem.options.selectedIndex != -1)
+					value = elem.options[elem.options.selectedIndex].text;
+				else {
+					if (validate) {
+						if (is_required && elem.options.length > 0) {
+							top.aras.AlertError('Variable ' + varName + ' is required, but not filled in.');
+							return;
+						}
+					}
+				}
+			}
+		}
+
+	  body += "<Variable id='" + varID + "'>" + esc(value) + "</Variable>";
+	}
+	body += '</Variables>';
+
+	body += "<Authentication mode='" +AuthMode+ "'>" +MD5Auth+ "</Authentication>";
+	body += '<Comments>' + esc(this.Comments.value) + '</Comments>';
+
+	if (mode == "complete")
+		body += '<Complete>1</Complete>';
+	else if (mode == "save")
+			body += '<Complete>0</Complete>';
+
+	body += '</Item>';
+	var result="<AML>";
+	var needForClearItem=false;
+	if(mode=="save"){
+		var valuesToAdd=MyAssItem.selectNodes('Relationships/Item[@type="Activity Task Value" and @action="add"]');
+		var valuesList=getSequenceOrderArray(valuesToAdd);
+		var tempBody="";
+		var tempTaskValue;
+		for (var i = 0;i<valuesToAdd.length; i++) {
+			tempTaskValue = valuesToAdd.item(valuesList[i].ind);
+			tempBody+=tempTaskValue.xml;
+			needForClearItem=true;
+		}
+		result+=tempBody;
+	}
+    result+=body;
+	result+="</AML>";
+
+	// now OK to execute the Vote.
+	if (top.aras.applyAML(result)) {
+		if (mode == "save") {
+		  top.aras.AlertSuccess("Activity saved successfully.");
+		  top.aras.itemsCache.deleteItem(MyAssID);
+		  if(needForClearItem) top.aras.itemsCache.deleteItem(itemId);
+		}
+    if (mode == "complete") {
+      top.aras.itemsCache.deleteItem(itemId);
+    }
+	top.window.close();
+	}
+}
+
+function initGrid()
+{
+	var grid=taskgrid;
+
+	grid.Delimeter = "|";
+	grid.DrawGrid = true;
+	grid.SelBGColor = "#FFFF00";
+	grid.SelTextColor = "#FFFFFF";
+	grid.Editable = true;
+	grid.ColumnDraggable = true;
+	grid.setColumnCount(4);
+	grid.setInitWidthsP("12|12|64|12");
+	grid.setHorAligns("center|center|left|center");
+	grid.SetHeaderCol(0,"Sequence");
+	grid.SetHeaderCol(1,"Required");
+	grid.SetHeaderCol(2,"Description");
+	grid.SetHeaderCol(3,"Complete");
+	grid.SetColumnProperties('sorttype=NUMERIC,inputformat={#####},locale=enUS',0);
+
+	grid=null;
+}
+
+// ************** peter 01.17.2008  changes for the AdHoc workflow  **********************************
+var CurrentCol=0;   // used for the AdHoc grid  F2 and Tab function
+var CurrentRow="";   // used for the AdHoc grid  F2 and Tab function
+var OldValue="";
+var adhocgrid = null
+var uniqueID=0;
+var innovator = aras.newIOMInnovator();
+
+function viewHistory() {
+  var params = new Object();
+  params.aras = top.aras;
+  params.processID = MyWflId;
+
+  var res = window.showModalDialog('../WorkflowProcess/WflProcessReport.html', params, 'dialogHeight:400px; dialogWidth:950px; status:0; help:0; resizable:1; scroll:1;');
+}
+
+
+function requestHelp() {
+	VoteSection.style.display = 'none';
+	AdHocSection.style.display = 'block';
+	AuthSection.style.display = 'none';
+	ButtonSection.style.display = 'none';
+	addActivity();
+}
+
+function cancelRequest() {
+	adhocgrid.turnEditOff();
+	VoteSection.style.display = 'block';
+	AdHocSection.style.display = 'none';
+	AuthSection.style.display = 'block';
+	ButtonSection.style.display = 'block';
+}
+
+
+function addActivity() {
+	adhocgrid.turnEditOff();
+   adhocgrid.addRow(++uniqueID," | | |1","1");
+   adhocgrid.setUserData(uniqueID,"assignid","");
+
+	var userNd = top.aras.getLoggedUserItem();
+	var identityNd = userNd.selectSingleNode("Relationships/Item[@type='Alias']/related_id/Item[@type='Identity']");
+  	adhocgrid.setUserData(uniqueID,"escalateid",identityNd.getAttribute("id"));
+  	adhocgrid.cells(uniqueID,2).setValue(top.aras.getItemProperty(identityNd,"keyed_name"));
+  	adhocgrid.editCell(uniqueID,0);
+  	CurrentCol = 0;
+  	CurrentRow=uniqueID;
+}
+
+function delActivity() {
+	adhocgrid.turnEditOff();
+   adhocgrid.deleteRow(adhocgrid.getSelectedId());
+}
+
+function lookupAssignee() {
+   var param = {aras:window.top.aras,itemtypeName:"Identity"};
+   var res = showModalDialog('../searchDialog.html', param, 'dialogHeight:450px; dialogWidth:700px; status:0; help:0; resizable:1');
+	if (!res) return;
+	adhocgrid.cells(CurrentRow,0).setValue(res.keyed_name);
+	adhocgrid.setUserData(CurrentRow,"assignid",res.itemID);
+}
+function lookupEscalate() {
+   var param = {aras:window.top.aras,itemtypeName:"Identity"};
+   var res = showModalDialog('../searchDialog.html', param, 'dialogHeight:450px; dialogWidth:700px; status:0; help:0; resizable:1');
+	if (!res) return;
+	adhocgrid.cells(CurrentRow,2).setValue(res.keyed_name);
+	adhocgrid.setUserData(CurrentRow,"escalateid",res.itemID);
+}
+
+
+function onAdHocEditCell(event, row, col) {
+	if (event==0) {
+		CurrentCol = parseInt(col);
+		CurrentRow = row;
+		OldValue=adhocgrid.cells(row,col).getValue();
+		return true;
+	}
+	if (event==1) return;
+	if (event==2) {
+		var NewValue=adhocgrid.cells(row,col).getValue();
+		if (NewValue==OldValue) return;
+		if (col==0) {
+			var item = aras.getItemByKeyedName("Identity", NewValue);
+			if (item == null) {
+				adhocgrid.cells(row,col).setValue(" ");
+				adhocgrid.setUserData(row,"assignid","");
+				setTimeout('lookupAssignee()',1);
+			} else {
+				var assignID = aras.getItemProperty(item, 'id');
+				adhocgrid.setUserData(row,"assignid",assignID);
+			}
+			return true;
+		}
+		if (col==2) {
+			var item = aras.getItemByKeyedName("Identity", NewValue);
+			if (item == null) {
+				adhocgrid.cells(row,col).setValue(" ");
+				adhocgrid.setUserData(row,"escalateid","");
+				setTimeout('lookupAssignee()',1);
+			} else {
+				var assignID = aras.getItemProperty(item, 'id');
+				adhocgrid.setUserData(row,"escalateid",assignID);
+			}
+		}
+	}
+	return false;
+}
+function initAdHocGrid()
+{
+	var grid=document.adhocgrid;
+	grid.Delimeter = "|";
+	grid.DrawGrid = true;
+	grid.SelBGColor = "#FFFF00";
+	grid.SelTextColor = "#FFFFFF";
+	grid.Editable = true;
+	grid.ColumnDraggable = true;
+	grid.setColumnCount(4);
+	grid.setInitWidthsP("20|40|25|15");
+	grid.setHorAligns("left|left|left|center");
+	grid.SetHeaderCol(0,"Request To");
+	grid.SetHeaderCol(1,"Message");
+	grid.SetHeaderCol(2,"Escalate To");
+	grid.SetHeaderCol(3,"Escalate Days");
+	grid=null;
+	adhocgrid=document.adhocgrid;
+}
+function onKeyPressed( kEv ) {
+  	var keyCode = kEv.keyCode;
+  	if (keyCode == 155) {  // Insert
+		addActivity();
+	}
+  	if (keyCode == 113) {  // F2 Lookup key for Dialogs
+		if (CurrentCol == 0) {
+			adhocgrid.turnEditOff();
+			setTimeout('lookupAssignee()',1);
+		}
+		if (CurrentCol == 2) {
+			adhocgrid.turnEditOff();
+			setTimeout('lookupEscalate()',1);
+		}
+	}
+	return true;
+
+}
+
+function sendRequest()  {
+	// check that there is at least one Request
+	// check that the request is valid (has a message and an assignee)
+	//  Create a New workflow Process Instance with Start, End and one Activity to receive the Help
+	// then loop through all the Requests that are valid
+	//    4 each  create a new Activity with two paths (from Start and to the originator's Activity)
+	// Submit the AML to start the new workflow and close the Voting window (don't close the current activity).
+
+	adhocgrid.turnEditOff();
+
+	var userNd = top.aras.getLoggedUserItem();
+	var identityNd = userNd.selectSingleNode("Relationships/Item[@type='Alias']/related_id/Item[@type='Identity']");
+	var MyAliasId = identityNd.getAttribute("id");
+
+	// get the x,y  of the Activity
+	var ActItem = innovator.newItem("Activity","get");
+	ActItem.setID(MyActId);
+	ActItem.setAttribute("select","x,y");
+	var result=ActItem.apply();
+   var X = 50 + parseInt(result.getProperty("x","0"));
+   var Y = 50 + parseInt(result.getProperty("y","0"));
+
+	var rowid="";
+	var ids =adhocgrid.getAllItemIds("|");
+	var id_array = ids.split("|");
+	if (id_array.length ==0) {
+		alert('Please create a Request first');
+		return;
+	}
+	rowid = id_array[0];
+	if (adhocgrid.getUserData(rowid,"assignid")=="" || adhocgrid.cells(rowid,1).getValue()=="" || adhocgrid.getUserData(rowid,"escalateid")=="") {
+		alert('You should specify an Assignee and a Message first');
+		return;
+	}
+
+	// create the workflow process
+	var WorkflowItem = innovator.newItem("Workflow","get");
+	WorkflowItem.setAttribute("select","source_type");
+	WorkflowItem.setProperty("related_id",workflowId);
+	WorkflowItem = WorkflowItem.apply();
+	if ( WorkflowItem.isError() ) {
+	    alert("Internal error.  Could not fetch Workflow Link:  " + WorkflowItem.getErrorDetail() );
+	    return;
+	}
+	WorkflowItem = WorkflowItem.getItemsByXPath("//Item[@type='Workflow']").getItemByIndex(0);
+	var MyAttachedTypeId = WorkflowItem.getProperty("source_type","");
+	var StartId  = innovator.getNewID();
+	var EndId  = innovator.getNewID();
+	var OrigId  = innovator.getNewID();
+   var X = 10;
+   var Y = 30;
+   var AML="<AML><Item type='Workflow' action='add'><source_id>" + itemId + "</source_id><source_type>" + MyAttachedTypeId + "</source_type>";
+   AML+=   "<related_id><Item type='Workflow Process' action='add'><name>" + workflowName.substring(0,18) + "-AdHocRequest</name>";
+   AML+=   "<Relationships>";
+	AML+=   "<Item type='Workflow Process Activity' action='add'>";
+	AML+=   "<related_id>";
+	AML+=   "<Item type='Activity' action='add' id='" + StartId + "'><name>Start</name><message></message>";
+	AML+=      "<is_start>1</is_start><x>" + X + "</x><y>" + Y + "</y>";
+	AML+=      "<icon>../images/Icons/16x16/16x16_arrow_right.gif</icon><is_auto>1</is_auto>";
+	AML+=   "<Relationships>";
+   X = X + 90;
+
+   //  looping thru the Requests to build the paths, collect Activities to append to the end
+   var newName = "Request For Help on: " + MyActName;
+	var ActList="";
+
+	for (var x = 0 ; x < id_array.length; x++) {
+		rowid = id_array[x];
+		if (rowid !="") {
+			var ActId  = innovator.getNewID();
+
+			// for each Request for help.  Draw a path from Start
+
+			AML+="<Item type='Workflow Process Path' action='add'><name>Done</name><is_default>1</is_default><authentication>none</authentication><segments></segments><x>0</x><y>0</y><source_id>" + StartId + "</source_id><related_id>" + ActId + "</related_id></Item>";
+
+			ActList+="<Item type='Workflow Process Activity' action='add'>";
+			ActList+="<related_id>";
+			ActList+="<Item type='Activity' action='add' id='" + ActId + "'><name>" + newName.substring(0,32) + "</name><message>" + adhocgrid.cells(rowid,1).getValue() + "</message>";
+			ActList+=   "<can_refuse>0</can_refuse><can_delegate>0</can_delegate><x>" + X + "</x><y>" + Y + "</y>";
+			ActList+=   "<icon>../images/Icons/32x32/32x32_tag.gif</icon><expected_duration>" + adhocgrid.cells(rowid,3).getValue() + "</expected_duration>";
+			ActList+=   "<escalate_to>" + adhocgrid.getUserData(rowid,"escalateid") + "</escalate_to><reminder_count>1</reminder_count><reminder_interval>1</reminder_interval>";
+			ActList+=   "<timeout_duration>" + adhocgrid.cells(rowid,3).getValue() + "</timeout_duration><priority>1</priority>";
+			ActList+=   "<Relationships>";
+			ActList+=      "<Item type='Activity Assignment' action='add'><is_required>1</is_required><voting_weight>100</voting_weight><related_id>" + adhocgrid.getUserData(rowid,"assignid") + "</related_id></Item>";
+			ActList+=      "<Item type='Workflow Process Path' action='add'><name>Done</name><authentication>none</authentication><segments></segments><x>-8</x><y>-15</y><related_id>" + OrigId + "</related_id></Item>";
+			ActList+=      "<Item type='Activity Email' action='add'><event>on_activate</event><target>all_assignments</target><related_id><Item type='EMail Message' action='get' select='id'><name>HelpRequest</name></Item></related_id></Item>";
+			ActList+=   "</Relationships>";
+			ActList+="</Item></related_id></Item>";
+			Y = Y + 80;
+		}
+	}
+   AML+="</Relationships></Item></related_id></Item>";  // ends the Start Activity item tag
+   AML+= ActList; //  add the activities
+   X = X + 90;
+	AML+= "<Item type='Workflow Process Activity' action='add'>";
+	AML+= "<related_id>";
+	AML+="<Item type='Activity' action='add' id='" + OrigId + "'><name>Help Request Result</name><message>Here is the answer to your request</message>";
+	AML+="<can_refuse>0</can_refuse><can_delegate>0</can_delegate><x>" + X + "</x><y>" + Y + "</y>";
+	AML+="<icon>../images/Icons/32x32/32x32_happy_face.gif</icon><wait_for_all_inputs>1</wait_for_all_inputs>";
+	AML+="<Relationships>";
+	AML+=   "<Item type='Activity Assignment' action='add'><is_required>1</is_required><voting_weight>100</voting_weight><related_id>" + MyAliasId + "</related_id></Item>";
+	AML+=   "<Item type='Workflow Process Path' action='add'><name>OK</name><authentication>none</authentication><segments></segments><x>-8</x><y>-15</y><related_id>" + EndId + "</related_id></Item>";
+	AML+=      "<Item type='Activity Email' action='add'><event>on_activate</event><target>all_assignments</target><related_id><Item type='EMail Message' action='get' select='id'><name>HelpResponse</name></Item></related_id></Item>";
+	AML+="</Relationships></Item></related_id></Item>";
+   X = X + 90;
+	AML+= "<Item type='Workflow Process Activity' action='add'>";
+	AML+= "<related_id>";
+	AML+=   "<Item type='Activity' action='add' id='" + EndId + "'><name>End</name><message></message>";
+	AML+=   "<is_end>1</is_end><x>" + X + "</x><y>" + Y + "</y>";
+	AML+=   "<icon>../images/Icons/16x16/16x16_redx.gif</icon><is_auto>1</is_auto></Item>";
+	AML+="</related_id></Item>";
+	AML+="</Relationships></Item></related_id></Item></AML>";
+
+   var result = innovator.applyAML(AML);
+	if (!result.isError() ) {
+		var Wfl = result.getItemsByXPath("//Item[@type='Workflow Process']").getItemByIndex(0);
+		result=Wfl.startWorkflow();
+		top.window.close();
+	}
+	else {
+		top.aras.AlertError("Server failure... Help Request Workflow didn't start:  "+ result.dom.xml);
+	}
+
+	// ***** Might want to set the ID of the new Workflow process as a sub-process on the current workflows Activity
+	//  needs testing for impact
+}
+</script>
+
+<script language="jscript" for="adhocgrid" event="GridStart(isSuccess)">
+	initAdHocGrid();
+</script>
+<script language="jscript" for="adhocgrid" event="GridEditCell(mode, rowID, col)">
+  var res = onAdHocEditCell(mode, rowID, col);
+  return res;
+</script>
+<script language="jscript" for="adhocgrid" event="GridKeyPress(kEv)">
+  var res = onKeyPressed(kEv);
+  return res;
+</script>
+
+<script language="jscript" for="taskgrid" event="GridStart(isSuccess)">
+	initGrid();
+	initUI();
+</script>
+
+<script language="jscript" for="taskgrid" event="GridEditCell(mode, rowID, col)">
+  var res = onGridEditCell(mode, rowID, col);
+  return res;
+</script>
+
+<body topmargin="0" leftmargin="0" style="overflow:auto;" bottommargin="10">
+<table border="0" width="100%" cellpadding="0" cellspacing="0" cols="1">
+
+<tr id="TitleSection"><td class="logicalSection">
+  <table border="0" width="100%" cellpadding="0" cellspacing="0" cols="2">
+  <tr><td colspan="2" align="center"><font style="font-family: Arial, Helvetica, sans-serif; font-size:12pt"><b>Workflow Activity Completion</b></font></td></tr>
+  <tr><td colspan="2" align="center"><img src="../images/lines/wvline.gif"></td></tr>
+  <tr class="logicalSubSection"><td align="right" width="50%"><b>Workflow:&nbsp;</b></td><td align="left"><script>document.write(this.MyWflName);</script></td></tr>
+  <tr><td align="right" width="50%"><b>Activity:&nbsp;</b></td><td align="left"><script>document.write(this.MyActName);</script></td></tr>
+  </table>
+</td></tr>
+
+<tr id="TasksSection"><td align="center" class="logicalSection">
+  <FIELDSET>
+    <legend>Tasks</legend>
+		<comment id="taskgrid_commented">
+<object id="taskgrid"
+				style="width:100%; height:100"
+    		classid="../cbin/TreeTable.dll#Aras.Client.Controls.GridContainer">
+		</object>
+</comment>
+<script>
+WriteUncommentedObject("taskgrid_commented");
+</script>
+
+  </FIELDSET>
+</td></tr>
+
+<tr id="VariablesSection"><td align="center" class="logicalSection">
+  <FIELDSET>
+  	<legend>Variables</legend>
+  	<SPAN id="vars" style="width:100%; height:expression((this.scrollHeight<90) ? this.scrollHeight : 90); display:block; overflow:auto;">
+  		<TABLE cellpadding='0' cellspacing='0' border='0' width='90%'>
+  			<script>populateVariables();</script>
+  		</TABLE>
+  	</SPAN>
+  </FIELDSET>
+</td></tr>
+
+<tr id="VoteSection"><td align="center" class="logicalSection">
+  <FIELDSET>
+  	<legend>Vote</legend>
+   	<TABLE cellpadding="0" cellspacing="0" border="0" width="100%" cols="4">
+   		<TR>
+   	  	<TD align="right"><b>Vote:&nbsp;</b></TD>
+        <TD><select id=VoteList size=1 width="20" onChange='onChangeVote();'></select></TD>
+        <TD align="right"><b>Delegate to:&nbsp;</b>
+        <TD>
+        	<input type="text" name="delegate" size=30 class="dynamicBkColor"
+						onkeydown='delegateOnKeydown()' onfocusout='doSearchIdentity()'>
+					<img name="delegate_img" align="absmiddle" height="12" width="16" border="0" src="../images/Icons/other/12x16_elipsis.gif"
+						style="display:inline; cursor:hand;" onClick='delegateClick()'>
+        </TD>
+        <!--  01/17.2008  peter added next TD for the AdHoc assignments -->
+			<TD align="LEFT">
+				<input type="button" name"AdHoc Assignments"  value="AdHoc Assignments" onClick="requestHelp()">
+			</TD>
+        <!-- end of addition --  also changed the colspan in the next td to 4 from 3  -->
+       </TR>
+	     <TR class="logicalSubSection2">
+  	   	<TD align="right"><b><br>Comments:&nbsp;</b><br></TD>
+    	  <TD colspan="4">
+      		<textarea name="Comments" rows=2 cols=80 wrap="on"></textarea>
+        </TD>
+	    </TR>
+    </TABLE>
+  </FIELDSET>
+</td></tr>
+
+<tr id="AdHocSection" style="display:none;"><td align="center" class="logicalSection">
+  <FIELDSET>
+    <legend>Request Help From</legend>
+    <table width="100%">
+		 <tr>
+			 <td width="25%" align="CENTER">
+				<input type="button" name="Add Activity"  value="Add Activity" onClick="addActivity()">
+			 </td>
+			 <td width="25%" align="CENTER">
+				<input type="button" name="Del Activity"  value="Del Activity" onClick="delActivity()">
+			 </td>
+			 <td width="25%">
+			 </td>
+			 <td width="25%">
+			 </td>
+		 </tr>
+		 <tr>
+			 <td colspan="4">
+				<comment id="adhocgrid_commented">
+				<object id="adhocgrid"
+					style="width:100%; height:100"
+					classid="../cbin/TreeTable.dll#Aras.Client.Controls.GridContainer">
+				</object>
+				</comment>
+				<script>
+					WriteUncommentedObject("adhocgrid_commented");
+				</script>
+
+			</td>
+		</tr>
+		 <tr>
+			 <td colspan="2" align="CENTER">
+				<input type="button" name="Send Request"  value="Send Request" onClick="sendRequest()">
+			 </td>
+			 <td colspan="2"  align="CENTER">
+				<input type="button" name="Cancel Request"  value="Cancel Request" onClick="cancelRequest()">
+			 </td>
+		 </tr>
+   </table>
+  </FIELDSET>
+</td></tr>
+
+<tr id="AuthSection"><td align="center" class="logicalSection">
+  <FIELDSET>
+    <legend>Authentication</legend>
+    <TABLE cellpadding="0" cellspacing="0" border="0" width="90%" cols="4">
+      <TR>
+        <TD align="right"><b>Password:&nbsp;</b></TD>
+        <TD align="left"><INPUT type='password' name='password' size=25 class='dynamicBkColor'></TD>
+        <TD align="right"><b>E-Signature:&nbsp;</b></TD>
+        <TD align="left"><INPUT type='password' name='esignature' size=30 class='dynamicBkColor'></TD>
+      </TR>
+    </TABLE>
+  </FIELDSET>
+</td></tr>
+
+<!-- peter 01.17.2008 for AdHoc activities.  added id=buttonSection to the next declaration -->
+<tr id="ButtonSection"><td align="center" class="logicalSubSection">
+	<TABLE cellpadding="0" cellspacing="0" border="0">
+  	<TR>
+    	<TD align="CENTER">
+      	<input type="button" name"Complete"  value="Complete" onClick="doComplete()">
+      </TD>
+      <td width="15px">&nbsp;</td>
+      <TD align="CENTER">
+      	<input type="button" name"Save"  value="Save Changes" onClick="saveChanges()">
+      </TD>
+      <td width="15px">&nbsp;</td>
+      <TD align="CENTER">
+      	<input type="button" name"View History"  value="View History" onClick="viewHistory()">
+      </TD>
+      <td width="15px">&nbsp;</td>
+      <TD align="CENTER">
+      	<input type="button" name"Cancel"  value="Cancel" onClick="cancelVote()">
+      </TD>
+    </TR>
+  </TABLE>
+</td></tr>
+
+</table>
+</body>
+</html>

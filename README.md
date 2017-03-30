@@ -56,6 +56,8 @@ Project | Aras
 
 See [the original readme](./Documentation/README.TXT) for more information on using this project.
 
+![Screenshot of the AdHoc Workflow Dialog](./Screenshots/WorkflowAdHoc.JPG)
+
 ## Contributing
 
 1. Fork it!
