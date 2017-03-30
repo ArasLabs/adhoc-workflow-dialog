@@ -14,12 +14,14 @@ This project and the following release notes have been migrated from the old Ara
 
 Release | Notes
 --------|--------
-[v8.0.0](https://github.com/ArasLabs/adhoc-workflow-dialog/releases/tag/v8.0.0) | Initial release, based on code Terry Stickel did for Varian Semiconductor. The orignal solution was for Innovator 6.1. here it is updated for 8.0.0 and 8.1.1. Note there is a package with 2 Email items to Import, and one replacement HTML file for the Innovator code tree.
+[v8.1.1](https://github.com/ArasLabs/adhoc-workflow-dialog/releases/tag/v8.1.1) | Initial release, based on code Terry Stickel did for Varian Semiconductor. The original solution was for Innovator 6.1. here it is updated for 8.0.0 and 8.1.1. Note there is a package with 2 Email items to Import, and one replacement HTML file for the Innovator code tree.
+[v8.0.0](https://github.com/ArasLabs/adhoc-workflow-dialog/releases/tag/v8.0.0) | Initial release, based on code Terry Stickel did for Varian Semiconductor. The original solution was for Innovator 6.1. here it is updated for 8.0.0 and 8.1.1. Note there is a package with 2 Email items to Import, and one replacement HTML file for the Innovator code tree.
 
 #### Supported Aras Versions
 
 Project | Aras
 --------|------
+[v8.1.1](https://github.com/ArasLabs/adhoc-workflow-dialog/releases/tag/v8.1.1) | 8.1.1
 [v8.0.0](https://github.com/ArasLabs/adhoc-workflow-dialog/releases/tag/v8.0.0) | 8.0.0
 
 ## Installation
